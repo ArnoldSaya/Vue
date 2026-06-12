@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, getCurrentInstance } from 'vue';
 
 const cuiBusqueda = ref('20250100'); 
 const alumnoDatos = ref(null);
@@ -111,8 +111,9 @@ const fechaEmision = ref('');
 const cargando = ref(false);
 const errorDebug = ref(null);
 
-// LÍNEA DE ACCESO DIRECTO: Vite inyecta la URL de producción desde el archivo .env automáticamente
-const BASE_ROUTE_API = import.meta.env.VITE_API_BASE;
+// Extraemos de forma limpia la configuración de la API global declarada en main.js
+const { proxy } = getCurrentInstance();
+const BASE_ROUTE_API = proxy.$apiBase;
 
 const consultarBackend = async () => {
   if (!cuiBusqueda.value.trim()) return;
@@ -123,37 +124,45 @@ const consultarBackend = async () => {
   errorDebug.value = null;
   
   try {
-    // Unimos la API del archivo .env con el CUI ingresado
-    const urlCompleta = `${BASE_ROUTE_API}&cui=${cuiBusqueda.value.trim()}`;
-    console.log("Desplegando petición final a:", urlCompleta);
+    const urlCompleta = `${BASE_ROUTE_API}?cui=${cuiBusqueda.value.trim()}`;
+    console.log("Consultando API Global de Producción en:", urlCompleta);
 
+    // Petición directa con modo CORS nativo y omisión de credenciales
     const response = await fetch(urlCompleta, {
       method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
+      throw new Error(`Error en el servidor. Código HTTP: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log("Respuesta exitosa:", data);
+    console.log("JSON recibido con éxito:", data);
 
-    let resultados = data.results || (Array.isArray(data) ? data : []);
+    let resultados = [];
+    if (data && data.results) {
+      resultados = data.results;
+    } else if (Array.isArray(data)) {
+      resultados = data;
+    }
 
     if (resultados.length > 0) {
       listaMatriculas.value = resultados;
       alumnoDatos.value = resultados[0].student;
       fechaEmision.value = resultados[0].created;
     } else {
-      errorDebug.value = "Conexión exitosa, pero el CUI no tiene matrículas registradas.";
+      errorDebug.value = "La consulta se procesó, pero no existen matrículas para este CUI.";
     }
 
   } catch (error) {
-    console.error("Error detectado:", error);
-    errorDebug.value = `${error.message}. Verifica que la URL del .env esté cargada en Railway.`;
+    console.error("Error de conexión:", error);
+    errorDebug.value = error.message;
   } finally {
     cargando.value = false;
   }
@@ -175,37 +184,210 @@ onMounted(() => {
 </script>
 
 <style>
-/* Estilos visuales idénticos a tu Constancia */
-body { margin: 0; font-family: Arial, sans-serif; background-color: #f4f6f9; color: #333; }
-.app-container { padding: 40px 20px; display: flex; flex-direction: column; align-items: center; }
-.control-panel { width: 100%; max-width: 950px; background: white; padding: 15px 20px; border-radius: 6px; margin-bottom: 25px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-.search-box { display: flex; align-items: center; gap: 15px; }
-.search-box input { padding: 8px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; width: 180px; }
-.search-box button { background-color: #164670; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-.search-box button:hover { background-color: #143754; }
-.constancia-papel { width: 100%; max-width: 950px; background: white; padding: 50px 60px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-.header-epis { text-align: center; }
-.header-epis h1 { font-size: 24px; color: #164670; margin: 0 0 10px 0; font-weight: bold; letter-spacing: 0.3px; }
-.header-epis h2 { font-size: 16px; color: #444; margin: 0 0 15px 0; font-weight: normal; }
-.fecha-emision { font-size: 13px; color: #666; margin: 0; }
-.linea-division { border: 0; border-top: 1px solid #ccc; margin: 20px 0 30px 0; }
-.seccion-documento { margin-bottom: 35px; }
-.titulo-seccion { background-color: #f2f4f7; color: #111; font-size: 13px; font-weight: bold; padding: 8px 12px; border-left: 4px solid #164670; margin-bottom: 15px; }
-.tabla-alumno { width: 100%; border-collapse: collapse; }
-.tabla-alumno td { padding: 6px 12px; font-size: 14px; }
-.col-label { width: 15%; font-weight: bold; }
-.col-valor { width: 85%; }
-.tabla-cursos { width: 100%; border-collapse: collapse; margin-top: 10px; }
-.tabla-cursos th { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; font-size: 13px; font-weight: bold; text-align: left; }
-.tabla-cursos td { border: 1px solid #e2e8f0; padding: 10px; font-size: 13px; color: #333; }
+/* Reset y estilos de maquetación oficiales */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: #f4f6f9;
+  color: #333;
+}
+
+.app-container {
+  padding: 40px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.control-panel {
+  width: 100%;
+  max-width: 950px;
+  background: white;
+  padding: 15px 20px;
+  border-radius: 6px;
+  margin-bottom: 25px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.search-box input {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 180px;
+}
+
+.search-box button {
+  background-color: #164670;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.search-box button:hover {
+  background-color: #143754;
+}
+
+.constancia-papel {
+  width: 100%;
+  max-width: 950px;
+  background: white;
+  padding: 50px 60px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.header-epis {
+  text-align: center;
+}
+
+.header-epis h1 {
+  font-size: 24px;
+  color: #164670; 
+  margin: 0 0 10px 0;
+  font-weight: bold;
+  letter-spacing: 0.3px;
+}
+
+.header-epis h2 {
+  font-size: 16px;
+  color: #444;
+  margin: 0 0 15px 0;
+  font-weight: normal;
+}
+
+.fecha-emision {
+  font-size: 13px;
+  color: #666;
+  margin: 0;
+}
+
+.linea-division {
+  border: 0;
+  border-top: 1px solid #ccc;
+  margin: 20px 0 30px 0;
+}
+
+.seccion-documento {
+  margin-bottom: 35px;
+}
+
+.titulo-seccion {
+  background-color: #f2f4f7;
+  color: #111;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 8px 12px;
+  border-left: 4px solid #164670;
+  margin-bottom: 15px;
+}
+
+.tabla-alumno {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla-alumno td {
+  padding: 6px 12px;
+  font-size: 14px;
+}
+
+.col-label {
+  width: 15%;
+  font-weight: bold;
+}
+
+.col-valor {
+  width: 85%;
+}
+
+.tabla-cursos {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+.tabla-cursos th {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px;
+  font-size: 13px;
+  font-weight: bold;
+  text-align: left;
+}
+
+.tabla-cursos td {
+  border: 1px solid #e2e8f0;
+  padding: 10px;
+  font-size: 13px;
+  color: #333;
+}
+
 .valor-destacado { font-weight: bold; }
 .texto-mayuscula { text-transform: uppercase; }
 .texto-minuscula { text-transform: lowercase; }
-.estado-mensaje { width: 100%; max-width: 950px; background: white; padding: 40px; text-align: center; border-radius: 4px; color: #555; }
-.error-box { border-top: 4px solid #dd4b39; }
-.spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 30px; height: 30px; border-radius: 50%; border-left-color: #164670; animation: spin 1s linear infinite; margin: 0 auto 10px auto; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-.debug-info { margin-top: 20px; padding: 15px; background-color: #fdf2f2; border: 1px solid #f5c6cb; border-radius: 4px; text-align: left; color: #721c24; font-size: 13px; }
-.debug-info pre { margin: 10px 0 0 0; background: #fff; padding: 10px; border: 1px solid #e3a8af; overflow-x: auto; font-family: monospace; }
-@media print { .no-print { display: none !important; } body { background: white; } .app-container { padding: 0; } .constancia-papel { box-shadow: none; padding: 0; width: 100%; } }
+
+.estado-mensaje {
+  width: 100%;
+  max-width: 950px;
+  background: white;
+  padding: 40px;
+  text-align: center;
+  border-radius: 4px;
+  color: #555;
+}
+
+.error-box {
+  border-top: 4px solid #dd4b39;
+}
+
+.spinner {
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border-left-color: #164670;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 10px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.debug-info {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #fdf2f2;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  text-align: left;
+  color: #721c24;
+  font-size: 13px;
+}
+
+.debug-info pre {
+  margin: 10px 0 0 0;
+  background: #fff;
+  padding: 10px;
+  border: 1px solid #e3a8af;
+  overflow-x: auto;
+  font-family: monospace;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  .app-container { padding: 0; }
+  .constancia-papel { box-shadow: none; padding: 0; width: 100%; }
+}
 </style>
