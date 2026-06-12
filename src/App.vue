@@ -102,7 +102,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, getCurrentInstance } from 'vue';
 
 const cuiBusqueda = ref('20250100'); 
 const alumnoDatos = ref(null);
@@ -111,11 +111,9 @@ const fechaEmision = ref('');
 const cargando = ref(false);
 const errorDebug = ref(null);
 
-// URL real de tu profesor
-const BACKEND_URL = 'https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/';
-
-// Proxy Cors público ultrarrápido para saltar el bloqueo de Vercel en producción
-const PROXY_CORS = 'https://corsproxy.io/?';
+// Capturamos la instancia global de Vue para extraer la línea del $apiBase de main.js
+const { proxy } = getCurrentInstance();
+const BASE_ROUTE_API = proxy.$apiBase;
 
 const consultarBackend = async () => {
   if (!cuiBusqueda.value.trim()) return;
@@ -126,9 +124,9 @@ const consultarBackend = async () => {
   errorDebug.value = null;
   
   try {
-    // Concatenamos el proxy con la URL final para romper las restricciones de CORS
-    const urlCompleta = `${PROXY_CORS}${encodeURIComponent(`${BACKEND_URL}?cui=${cuiBusqueda.value.trim()}`)}`;
-    console.log("Consultando de forma segura a través de Proxy Bridge:", urlCompleta);
+    // Construimos la URL uniendo la propiedad global de main.js y el CUI buscado
+    const urlCompleta = `${BASE_ROUTE_API}?cui=${cuiBusqueda.value.trim()}`;
+    console.log("Petición global enviada a:", urlCompleta);
 
     const response = await fetch(urlCompleta, {
       method: 'GET',
@@ -142,7 +140,7 @@ const consultarBackend = async () => {
     }
 
     const data = await response.json();
-    console.log("JSON recibido con éxito en Railway:", data);
+    console.log("JSON real procesado con éxito:", data);
 
     let resultados = [];
     if (data && data.results) {
@@ -156,12 +154,12 @@ const consultarBackend = async () => {
       alumnoDatos.value = resultados[0].student;
       fechaEmision.value = resultados[0].created;
     } else {
-      errorDebug.value = "La consulta se realizó, pero no existen matrículas registradas para este número de CUI.";
+      errorDebug.value = "La consulta se realizó con éxito, pero la lista de resultados vino vacía para este CUI.";
     }
 
   } catch (error) {
-    console.error("Error de red detallado:", error);
-    errorDebug.value = `${error.message}. Inténtalo de nuevo en unos segundos.`;
+    console.error("Error de red:", error);
+    errorDebug.value = error.message;
   } finally {
     cargando.value = false;
   }
