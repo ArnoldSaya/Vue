@@ -111,9 +111,18 @@ const fechaEmision = ref('');
 const cargando = ref(false);
 const errorDebug = ref(null);
 
-// Capturamos la instancia global de Vue para extraer la línea del $apiBase de main.js
+// Extraemos la configuración global inyectada en main.js
 const { proxy } = getCurrentInstance();
 const BASE_ROUTE_API = proxy.$apiBase;
+
+const determinarUrlCompleta = (cui) => {
+  // Si la url ya contiene el bypass de corsproxy, añadimos correctamente el CUI al final
+  if (BASE_ROUTE_API.includes('corsproxy.io')) {
+    const urlOriginal = decodeURIComponent(BASE_ROUTE_API.split('?')[1]);
+    return 'https://corsproxy.io/?' + encodeURIComponent(`${urlOriginal}?cui=${cui}`);
+  }
+  return `${BASE_ROUTE_API}?cui=${cui}`;
+};
 
 const consultarBackend = async () => {
   if (!cuiBusqueda.value.trim()) return;
@@ -124,9 +133,8 @@ const consultarBackend = async () => {
   errorDebug.value = null;
   
   try {
-    // Construimos la URL uniendo la propiedad global de main.js y el CUI buscado
-    const urlCompleta = `${BASE_ROUTE_API}?cui=${cuiBusqueda.value.trim()}`;
-    console.log("Petición global enviada a:", urlCompleta);
+    const urlCompleta = determinarUrlCompleta(cuiBusqueda.value.trim());
+    console.log("Petición global con acceso completo enviada a:", urlCompleta);
 
     const response = await fetch(urlCompleta, {
       method: 'GET',
@@ -154,12 +162,12 @@ const consultarBackend = async () => {
       alumnoDatos.value = resultados[0].student;
       fechaEmision.value = resultados[0].created;
     } else {
-      errorDebug.value = "La consulta se realizó con éxito, pero la lista de resultados vino vacía para este CUI.";
+      errorDebug.value = "La consulta se realizó correctamente, pero el CUI no tiene matrículas registradas.";
     }
 
   } catch (error) {
     console.error("Error de red:", error);
-    errorDebug.value = error.message;
+    errorDebug.value = `${error.message}. Error de acceso CORS en la nube.`;
   } finally {
     cargando.value = false;
   }

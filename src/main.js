@@ -4,8 +4,8 @@ import App from './App.vue'
 
 const app = createApp(App)
 
-// ESTA ES LA LÍNEA LITERAL QUE FALTA (Registra la API de forma global en toda la app)
-app.config.globalProperties.$apiBase = 'https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/';
+// LÍNEA CLAVE: Registra la API global con bypass de CORS integrado para producción
+app.config.globalProperties.$apiBase = 'https://corsproxy.io/?' + encodeURIComponent('https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/');
 
 app.config.errorHandler = (err, instance, info) => {
     console.error("Error global de Vue detectado:", err);
