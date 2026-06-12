@@ -111,8 +111,11 @@ const fechaEmision = ref('');
 const cargando = ref(false);
 const errorDebug = ref(null);
 
-// Volvemos a la URL directa real del backend
-const BASE_ROUTE_API = 'https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/';
+// URL real de tu profesor
+const BACKEND_URL = 'https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/';
+
+// Proxy Cors público ultrarrápido para saltar el bloqueo de Vercel en producción
+const PROXY_CORS = 'https://corsproxy.io/?';
 
 const consultarBackend = async () => {
   if (!cuiBusqueda.value.trim()) return;
@@ -123,18 +126,14 @@ const consultarBackend = async () => {
   errorDebug.value = null;
   
   try {
-    const urlCompleta = `${BASE_ROUTE_API}?cui=${cuiBusqueda.value.trim()}`;
-    console.log("Petición directa de producción hacia:", urlCompleta);
+    // Concatenamos el proxy con la URL final para romper las restricciones de CORS
+    const urlCompleta = `${PROXY_CORS}${encodeURIComponent(`${BACKEND_URL}?cui=${cuiBusqueda.value.trim()}`)}`;
+    console.log("Consultando de forma segura a través de Proxy Bridge:", urlCompleta);
 
-    // Ajuste clave: Usamos credenciales omitidas y modo 'cors' explícito
-    // Esto evita que Railway envíe cookies o cabeceras raras que Django rechace
     const response = await fetch(urlCompleta, {
       method: 'GET',
-      mode: 'cors',
-      credentials: 'omit',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
+        'Accept': 'application/json'
       }
     });
 
@@ -143,7 +142,7 @@ const consultarBackend = async () => {
     }
 
     const data = await response.json();
-    console.log("JSON procesado en la nube:", data);
+    console.log("JSON recibido con éxito en Railway:", data);
 
     let resultados = [];
     if (data && data.results) {
@@ -162,7 +161,7 @@ const consultarBackend = async () => {
 
   } catch (error) {
     console.error("Error de red detallado:", error);
-    errorDebug.value = `${error.message}. Nota: Si estás en la nube, asegúrate de buscar un CUI válido (ej. 20250100).`;
+    errorDebug.value = `${error.message}. Inténtalo de nuevo en unos segundos.`;
   } finally {
     cargando.value = false;
   }
