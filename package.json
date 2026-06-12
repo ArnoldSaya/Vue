@@ -6,7 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "vite preview --port $PORT --host 0.0.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.61.1",
