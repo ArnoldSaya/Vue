@@ -112,8 +112,8 @@ const fechaEmision = ref('');
 const cargando = ref(false);
 const errorDebug = ref(null);
 
-// Tu URL base directa
-const BASE_ROUTE_API = 'https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/';
+// Modificado para usar el Proxy Inverso configurado en vite.config.js
+const BASE_ROUTE_API = '/api-universidad/restful/enrollment-certificate/';
 
 const consultarBackend = async () => {
   if (!cuiBusqueda.value.trim()) return;
@@ -124,9 +124,9 @@ const consultarBackend = async () => {
   errorDebug.value = null;
   
   try {
-    // Consultamos usando el parámetro '?cui=' tal cual requiere tu backend
+    // Construimos la URL pasando por nuestro puente proxy local
     const urlCompleta = `${BASE_ROUTE_API}?cui=${cuiBusqueda.value.trim()}`;
-    console.log("Petición enviada a:", urlCompleta);
+    console.log("Petición enviada mediante proxy a:", urlCompleta);
 
     const response = await fetch(urlCompleta, {
       method: 'GET',
@@ -150,10 +150,10 @@ const consultarBackend = async () => {
       resultados = data;
     }
 
-    // Si hay resultados, mapeamos las propiedades correctas
+    // Si hay resultados, mapeamos las propiedades correctas de la API
     if (resultados.length > 0) {
       listaMatriculas.value = resultados;
-      // Extraemos los datos comunes del alumno usando el primer registro de la lista
+      // Extraemos los datos del alumno del primer ítem devuelto
       alumnoDatos.value = resultados[0].student;
       fechaEmision.value = resultados[0].created;
     } else {
@@ -162,7 +162,7 @@ const consultarBackend = async () => {
 
   } catch (error) {
     console.error("Error de red:", error);
-    errorDebug.value = error.message;
+    errorDebug.value = `${error.message}. Si persiste, verifica el estado del Proxy Inverso o las restricciones de CORS del servidor backend.`;
   } finally {
     cargando.value = false;
   }
