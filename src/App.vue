@@ -104,7 +104,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-// Variables reactivas separadas para un mapeo limpio
 const cuiBusqueda = ref('20250100'); 
 const alumnoDatos = ref(null);
 const listaMatriculas = ref([]);
@@ -112,8 +111,8 @@ const fechaEmision = ref('');
 const cargando = ref(false);
 const errorDebug = ref(null);
 
-// Modificado para usar el Proxy Inverso configurado en vite.config.js
-const BASE_ROUTE_API = '/api-universidad/restful/enrollment-certificate/';
+// Volvemos a la URL directa real del backend
+const BASE_ROUTE_API = 'https://sisacad-enrollments-backend.vercel.app/restful/enrollment-certificate/';
 
 const consultarBackend = async () => {
   if (!cuiBusqueda.value.trim()) return;
@@ -124,14 +123,18 @@ const consultarBackend = async () => {
   errorDebug.value = null;
   
   try {
-    // Construimos la URL pasando por nuestro puente proxy local
     const urlCompleta = `${BASE_ROUTE_API}?cui=${cuiBusqueda.value.trim()}`;
-    console.log("Petición enviada mediante proxy a:", urlCompleta);
+    console.log("Petición directa de producción hacia:", urlCompleta);
 
+    // Ajuste clave: Usamos credenciales omitidas y modo 'cors' explícito
+    // Esto evita que Railway envíe cookies o cabeceras raras que Django rechace
     const response = await fetch(urlCompleta, {
       method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
       headers: {
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
       }
     });
 
@@ -140,9 +143,8 @@ const consultarBackend = async () => {
     }
 
     const data = await response.json();
-    console.log("JSON real procesado con éxito:", data);
+    console.log("JSON procesado en la nube:", data);
 
-    // Extraemos la lista de registros desde la propiedad 'results' del JSON de Django
     let resultados = [];
     if (data && data.results) {
       resultados = data.results;
@@ -150,19 +152,17 @@ const consultarBackend = async () => {
       resultados = data;
     }
 
-    // Si hay resultados, mapeamos las propiedades correctas de la API
     if (resultados.length > 0) {
       listaMatriculas.value = resultados;
-      // Extraemos los datos del alumno del primer ítem devuelto
       alumnoDatos.value = resultados[0].student;
       fechaEmision.value = resultados[0].created;
     } else {
-      errorDebug.value = "La consulta se realizó con éxito, pero la lista de resultados vino vacía para este CUI.";
+      errorDebug.value = "La consulta se realizó, pero no existen matrículas registradas para este número de CUI.";
     }
 
   } catch (error) {
-    console.error("Error de red:", error);
-    errorDebug.value = `${error.message}. Si persiste, verifica el estado del Proxy Inverso o las restricciones de CORS del servidor backend.`;
+    console.error("Error de red detallado:", error);
+    errorDebug.value = `${error.message}. Nota: Si estás en la nube, asegúrate de buscar un CUI válido (ej. 20250100).`;
   } finally {
     cargando.value = false;
   }
